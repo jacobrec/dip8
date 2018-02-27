@@ -3,6 +3,7 @@ docs.json
 __dummy.html
 docs/
 chip8.so
+chip8
 chip8.dylib
 chip8.dll
 chip8.a
