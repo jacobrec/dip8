@@ -1,0 +1,12 @@
+{
+	"name": "chip8",
+	"authors": [
+		"Jacob Reckhard"
+	],
+	"dependencies": {
+		"d2d": "~>1.4.13"
+	},
+	"description": "An emulator for Chip-8 systems",
+	"copyright": "Copyright © 2018, Jacob Reckhard",
+	"license": "MIT"
+}
