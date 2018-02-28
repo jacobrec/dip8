@@ -9,14 +9,8 @@ void main() {
 
     chip = new Chip8();
     chip.loadRom("roms/brix.rom");
-
-    setupInput();
     setupGraphics();
 
-}
-
-void setupInput() {
-    // todo
 }
 
 void setupGraphics() {

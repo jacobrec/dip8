@@ -1,7 +1,8 @@
 import d2d;
 import cpu;
-import timer;
-
+import std.datetime;
+import std.datetime.stopwatch : benchmark, StopWatch;
+import std.stdio;
 /**
  * The screen on which to draw some shapes
  */
@@ -52,8 +53,14 @@ class RenderScreen : Screen {
         }
     }
 
+
+
+    int i = 0;
+    int n = 0;
     override void onFrame() {
-        //scope t = new Timer();
+        auto sw = StopWatch();
+        sw.start();
+        n++;
         this.chip.cycle();
         if (this.chip.sound_timer) {
             this.foreground = PredefinedColor.BLACK;
@@ -63,5 +70,7 @@ class RenderScreen : Screen {
             this.foreground = PredefinedColor.WHITE;
             this.background = PredefinedColor.BLACK;
         }
+        i+=sw.peek().total!"hnsecs"();
+        writeln(i/n);
     }
 }

@@ -8,5 +8,6 @@
 	},
 	"description": "An emulator for Chip-8 systems",
 	"copyright": "Copyright © 2018, Jacob Reckhard",
-	"license": "MIT"
+	"license": "MIT",
+	"buildOptions": ["inline", "optimize"]
 }
