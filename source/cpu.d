@@ -499,8 +499,9 @@ class Chip8 {
     }
 
     bool drawPixel(int x, int y, bool on) {
-        this.pixels[(x) % 64 + (y) * 64] ^= on;
-        return on && !this.pixels[(x) % 64 + (y) * 64];
+        int ind = (x % 64 + y * 64) % (32*64);
+        this.pixels[ind] ^= on;
+        return on && !this.pixels[ind];
     }
 
     bool Dxyn(ubyte x, ubyte y, ubyte height) {

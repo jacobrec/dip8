@@ -8,7 +8,7 @@ Chip8 chip;
 void main() {
 
     chip = new Chip8();
-    chip.loadRom("roms/blinky.rom");
+    chip.loadRom("roms/pong.rom");
     setupGraphics();
 
 }
