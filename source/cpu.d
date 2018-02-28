@@ -114,14 +114,12 @@ class Chip8 {
     void jpi(const ushort op) {
         // 1nnn - JP addr: Jump to location nnn
         this.pc = op & 0x0FFF;
-        assert(pc % 2 == 0);
     }
 
     void call(const ushort op) {
         // 2nnn - CALL addr: Call subroutine at nnn
         this.stack[sp++] = this.pc;
         this.pc = op & 0x0FFF;
-        assert(pc % 2 == 0);
     }
 
     void sei(const ushort op) {
@@ -221,12 +219,7 @@ class Chip8 {
 
     void jp(const ushort op) {
         // Bnnn - JP V0, addr: Jump to location nnn + V0.
-        assert(pc % 2 == 0);
-        assert((op & 0x0FFF) % 2 == 0);
-        assert(V[0] % 2 == 0);
-
         this.pc = cast(ushort)(V[0] + op & 0x0FFF);
-        assert(pc % 2 == 0);
     }
 
     void rnd(const ushort op) {
@@ -292,9 +285,10 @@ class Chip8 {
 
     void ldb(const ushort op) {
         // Fx33 - LD B, Vx: Store BCD representation of Vx in memory locations I, I+1, and I+2.
-        this.memory[I] = V[((op & 0x0F00) >> 8)] % 10;
-        this.memory[I + 1] = (V[((op & 0x0F00) >> 8)] / 10) % 10;
-        this.memory[I + 2] = (V[((op & 0x0F00) >> 8)] / 100) % 10;
+        this.memory[I+2] = (V[((op & 0x0F00) >> 8)]) % 10;
+        this.memory[I+1] = (V[((op & 0x0F00) >> 8)] / 10) % 10;
+        this.memory[I] = (V[((op & 0x0F00) >> 8)] / 100) % 10;
+
     }
 
     void ldar(const ushort op) {
@@ -307,7 +301,7 @@ class Chip8 {
     void ldra(const ushort op) {
         // Fx65 - LD Vx, [I]: Read registers V0 through Vx from memory starting at location I.
         for (int i = 0; i < ((op & 0x0F00) >> 8); i++) {
-            V[i] = this.memory[i + I];
+            V[i] = this.memory[I++];
         }
     }
 
@@ -494,21 +488,14 @@ class Chip8 {
 
     int[ushort] cached;
     void cycle() {
-        //import std.stdio;
+        import std.stdio;
 
         ushort op = (this.memory[pc++] << 8);
         op |= this.memory[pc++];
-        //writef("opcode: 0x%X", op);
+        writef("opcode: 0x%X", op);
         funTable[cached[op]](op);
-        // printRegisters();
-        // writeln();
-
-        if (sound_timer > 0) {
-            sound_timer--;
-        }
-        if (delay_timer > 0) {
-            delay_timer--;
-        }
+        printRegisters();
+        writeln();
     }
 
     bool drawPixel(int x, int y, bool on) {

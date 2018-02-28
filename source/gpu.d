@@ -61,8 +61,14 @@ class RenderScreen : Screen {
         auto sw = StopWatch();
         sw.start();
         n++;
-        for(int i = 0; i < 8; i++){
+        for(int i = 0; i < 9; i++){// the cpu should be at 540 hz (540hz/60fps = 9 per frame)
             this.chip.cycle();
+        }
+        if (this.chip.sound_timer > 0) {
+            this.chip.sound_timer--;
+        }
+        if (this.chip.delay_timer > 0) {
+            this.chip.delay_timer--;
         }
 
         if (this.chip.sound_timer) {
@@ -73,7 +79,7 @@ class RenderScreen : Screen {
             this.foreground = PredefinedColor.WHITE;
             this.background = PredefinedColor.BLACK;
         }
-        i+=sw.peek().total!"hnsecs"();
+        //i+=sw.peek().total!"hnsecs"();
         writeln(i/n);
     }
 }

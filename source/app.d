@@ -8,7 +8,7 @@ Chip8 chip;
 void main() {
 
     chip = new Chip8();
-    chip.loadRom("roms/brix.rom");
+    chip.loadRom("roms/blinky.rom");
     setupGraphics();
 
 }
