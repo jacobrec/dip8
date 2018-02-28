@@ -88,6 +88,10 @@ class Chip8 {
             this.memory[0x200 + i] = buffer[i];
         }
         f.close();
+
+        for (ushort i = 0; i < 0xFFFF; i++) {
+            cached[i] = this.getInstruction(i);
+        }
     }
 
     ubyte A = 0xA;
@@ -410,10 +414,8 @@ class Chip8 {
         else if (this.matches(op, F, x, 6, 5)) { // Fx65 - LD Vx, [I]: Read registers V0 through Vx from memory starting at location I.
             return 33;
         }
-        else {
-            badInstruction(op);
-            assert(0);
-        }
+
+        return -1;
     }
 
     void delegate(const ushort op)[] funTable;
@@ -497,9 +499,6 @@ class Chip8 {
         ushort op = (this.memory[pc++] << 8);
         op |= this.memory[pc++];
         //writef("opcode: 0x%X", op);
-        if (op !in cached) {
-            cached[op] = this.getInstruction(op);
-        }
         funTable[cached[op]](op);
         // printRegisters();
         // writeln();

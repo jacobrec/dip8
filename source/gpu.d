@@ -61,7 +61,10 @@ class RenderScreen : Screen {
         auto sw = StopWatch();
         sw.start();
         n++;
-        this.chip.cycle();
+        for(int i = 0; i < 8; i++){
+            this.chip.cycle();
+        }
+
         if (this.chip.sound_timer) {
             this.foreground = PredefinedColor.BLACK;
             this.background = PredefinedColor.WHITE;
