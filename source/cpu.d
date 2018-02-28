@@ -1,3 +1,5 @@
+import std.random;
+
 // dfmt off
 ubyte[80] chip8_fontset = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -57,6 +59,14 @@ class Chip8 {
         for (int i = 0; i < 80; i++) {
             this.memory[i] = chip8_fontset[i];
         }
+
+        funTable = [&this.clr, &this.ret, &this.jpi, &this.call, &this.sei,
+            &this.snei, &this.se, &this.ldi, &this.addi, &this.ld,
+            &this.or, &this.and, &this.xor, &this.add, &this.sub,
+            &this.shr, &this.subn, &this.shl, &this.sne, &this.lda,
+            &this.jp, &this.rnd, &this.drw, &this.skp, &this.sknp,
+            &this.lddt, &this.ldkp, &this.dtld, &this.ldst, &this.adda,
+            &this.ldf, &this.ldb, &this.ldar, &this.ldra];
     }
 
     void loadRom(string filepath) {
@@ -87,152 +97,326 @@ class Chip8 {
     ubyte E = 0xE;
     ubyte F = 0xF;
 
-    void doInstruction(const ushort op) {
-        immutable ubyte a = (op & 0xF000) >> 12;
-        immutable ubyte b = (op & 0x0F00) >> 8;
-        immutable ubyte c = (op & 0x00F0) >> 4;
-        immutable ubyte d = (op & 0x000F);
+    void clr(const ushort op) {
+        // 00E0 - CLS: Clear the display
+        this.pixels = false;
+    }
 
+    void ret(const ushort op) {
+        // 00EE - RET: Return from a subroutine.
+        this.pc = this.stack[--this.sp];
+    }
+
+    void jpi(const ushort op) {
+        // 1nnn - JP addr: Jump to location nnn
+        this.pc = op & 0x0FFF;
+        assert(pc % 2 == 0);
+    }
+
+    void call(const ushort op) {
+        // 2nnn - CALL addr: Call subroutine at nnn
+        this.stack[sp++] = this.pc;
+        this.pc = op & 0x0FFF;
+        assert(pc % 2 == 0);
+    }
+
+    void sei(const ushort op) {
+        // 3xkk - SE Vx, byte: Skip next instruction if Vx = kk.
+        if (V[((op & 0x0F00) >> 8)] == (op & 0x00FF)) {
+            this.pc += 2;
+        }
+    }
+
+    void snei(const ushort op) {
+        // 4xkk - SNE Vx, byte: Skip next instruction if Vx != kk
+        if (V[((op & 0x0F00) >> 8)] != (op & 0x00FF)) {
+            this.pc += 2;
+        }
+    }
+
+    void se(const ushort op) {
+        // 5xy0 - SE Vx, Vy: Skip next instruction if Vx = Vy
+        if (V[((op & 0x0F00) >> 8)] == V[((op & 0x00F0) >> 4)]) {
+            this.pc += 2;
+        }
+    }
+
+    void ldi(const ushort op) {
+        // 6xkk - LD Vx, byte: Set Vx = kk.
+        V[((op & 0x0F00) >> 8)] = cast(ubyte)(op & 0x00FF);
+    }
+
+    void addi(const ushort op) {
+        // 7xkk - ADD Vx, byte: Set Vx = Vx + kk
+        V[((op & 0x0F00) >> 8)] += cast(ubyte)(op & 0x00FF);
+    }
+
+    void ld(const ushort op) {
+        // 8xy0 - LD Vx, Vy: Set Vx = Vy.
+        V[((op & 0x0F00) >> 8)] = V[((op & 0x00F0) >> 4)];
+    }
+
+    void or(const ushort op) {
+        // 8xy1 - OR Vx, Vy: Set Vx = Vx OR Vy.
+        V[((op & 0x0F00) >> 8)] |= V[((op & 0x00F0) >> 4)];
+    }
+
+    void and(const ushort op) {
+        // 8xy2 - AND Vx, Vy: Set Vx = Vx AND Vy
+        V[((op & 0x0F00) >> 8)] &= V[((op & 0x00F0) >> 4)];
+    }
+
+    void xor(const ushort op) {
+        // 8xy3 - XOR Vx, Vy: Set Vx = Vx XOR Vy.
+        V[((op & 0x0F00) >> 8)] ^= V[((op & 0x00F0) >> 4)];
+    }
+
+    void add(const ushort op) {
+        // 8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF = carry.
+        if (V[((op & 0x0F00) >> 8)] + V[((op & 0x00F0) >> 4)] > 255) {
+            V[F] = cast(ubyte)(V[((op & 0x0F00) >> 8)] + V[((op & 0x00F0) >> 4)] - 255);
+        }
+        V[((op & 0x0F00) >> 8)] += V[((op & 0x00F0) >> 4)];
+    }
+
+    void sub(const ushort op) {
+        // 8xy5 - SUB Vx, Vy: Set Vx = Vx - Vy, set VF = NOT borrow.
+        this.V[F] = V[((op & 0x0F00) >> 8)] > V[((op & 0x00F0) >> 4)] ? 1 : 0;
+        V[((op & 0x0F00) >> 8)] -= V[((op & 0x00F0) >> 4)];
+    }
+
+    void shr(const ushort op) {
+        // 8xy6 - SHR Vx {, Vy}: Set Vx = Vx SHR 1.
+        this.V[F] = (V[((op & 0x0F00) >> 8)] & 1) ? 1 : 0;
+        V[((op & 0x0F00) >> 8)] >>= 1;
+    }
+
+    void subn(const ushort op) {
+        // 8xy7 - SUBN Vx, Vy: Set Vx = Vy - Vx,
+        this.V[F] = V[((op & 0x00F0) >> 4)] > V[((op & 0x0F00) >> 8)] ? 1 : 0;
+        V[((op & 0x0F00) >> 8)] = cast(ubyte)(V[((op & 0x00F0) >> 4)] - V[((op & 0x0F00) >> 8)]);
+    }
+
+    void shl(const ushort op) {
+        // 8xyE - SHL Vx {, Vy}: Set Vx = Vx SHL 1.
+        this.V[F] = (V[((op & 0x0F00) >> 8)] & 0b10000000) >> 7;
+        V[((op & 0x0F00) >> 8)] <<= 1;
+    }
+
+    void sne(const ushort op) {
+        // 9xy0 - SNE Vx, Vy: Skip next instruction if Vx != Vy
+        if (V[((op & 0x0F00) >> 8)] != V[((op & 0x00F0) >> 4)]) {
+            this.pc += 2;
+        }
+    }
+
+    void lda(const ushort op) {
+        // Annn - LD I, addr: Set I = nnn.
+        I = op & 0x0FFF;
+    }
+
+    void jp(const ushort op) {
+        // Bnnn - JP V0, addr: Jump to location nnn + V0.
+        assert(pc % 2 == 0);
+        assert((op & 0x0FFF) % 2 == 0);
+        assert(V[0] % 2 == 0);
+
+        this.pc = cast(ushort)(V[0] + op & 0x0FFF);
+        assert(pc % 2 == 0);
+    }
+
+    void rnd(const ushort op) {
+        // Cxkk - RND Vx, byte: Set Vx = random byte AND kk.
+        V[((op & 0x0F00) >> 8)] = cast(ubyte)(uniform(0, 256) & op & 0x00FF);
+    }
+
+    void drw(const ushort op) {
+        // Dxyn - DRW Vx, Vy, nibble: Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
+        this.V[F] = this.Dxyn(V[((op & 0x0F00) >> 8)], V[((op & 0x00F0) >> 4)], (op & 0x000F)) ? 1
+            : 0;
+    }
+
+    void skp(const ushort op) {
+        // Ex9E - SKP Vx: Skip next instruction if key with the value of Vx is pressed.
+        if (this.keys[V[((op & 0x0F00) >> 8)]]) {
+            this.pc += 2;
+        }
+    }
+
+    void sknp(const ushort op) {
+        // ExA1 - SKNP Vx: Skip next instruction if key with the value of Vx is not pressed
+        if (!this.keys[V[((op & 0x0F00) >> 8)]]) {
+            this.pc += 2;
+        }
+    }
+
+    void lddt(const ushort op) {
+        // Fx07 - LD Vx, DT: Set Vx = delay timer value.
+        V[((op & 0x0F00) >> 8)] = this.delay_timer;
+    }
+
+    void ldkp(const ushort op) {
+        // Fx0A - LD Vx, K: Wait for a key press, store the value of the key in Vx.
+        if (this.getPress() == 255) {
+            this.pc -= 2;
+            printKeys();
+        }
+        else {
+            V[((op & 0x0F00) >> 8)] = this.getPress();
+        }
+    }
+
+    void dtld(const ushort op) {
+        // Fx15 - LD DT, Vx: Set delay timer = Vx.
+        this.delay_timer = V[((op & 0x0F00) >> 8)];
+    }
+
+    void ldst(const ushort op) {
+        // Fx18 - LD ST, Vx: Set sound timer = Vx.
+        this.sound_timer = V[((op & 0x0F00) >> 8)];
+    }
+
+    void adda(const ushort op) {
+        // Fx1E - ADD I, Vx: Set I = I + Vx.
+        I += V[((op & 0x0F00) >> 8)];
+    }
+
+    void ldf(const ushort op) {
+        // Fx29 - LD F, Vx: Set I = location of sprite for digit Vx.
+        I = 5 * V[((op & 0x0F00) >> 8)];
+    }
+
+    void ldb(const ushort op) {
+        // Fx33 - LD B, Vx: Store BCD representation of Vx in memory locations I, I+1, and I+2.
+        this.memory[I] = V[((op & 0x0F00) >> 8)] % 10;
+        this.memory[I + 1] = (V[((op & 0x0F00) >> 8)] / 10) % 10;
+        this.memory[I + 2] = (V[((op & 0x0F00) >> 8)] / 100) % 10;
+    }
+
+    void ldar(const ushort op) {
+        // Fx55 - LD [I], Vx: Store registers V0 through Vx in memory starting at location I
+        for (int i = 0; i < ((op & 0x0F00) >> 8); i++) {
+            this.memory[I++] = V[i];
+        }
+    }
+
+    void ldra(const ushort op) {
+        // Fx65 - LD Vx, [I]: Read registers V0 through Vx from memory starting at location I.
+        for (int i = 0; i < ((op & 0x0F00) >> 8); i++) {
+            V[i] = this.memory[i + I];
+        }
+    }
+
+    int getInstruction(const ushort op) {
         if (this.matches(op, 0, 0, E, 0)) { // 00E0 - CLS: Clear the display
-            this.pixels = false;
+            return 0;
         }
         else if (this.matches(op, 0, 0, E, E)) { // 00EE - RET: Return from a subroutine.
-            this.pc = this.stack[--this.sp];
+            return 1;
         }
         else if (this.matches(op, 1, x, x, x)) { // 1nnn - JP addr: Jump to location nnn
-            this.pc = op & 0x0FFF;
+            return 2;
         }
         else if (this.matches(op, 2, x, x, x)) { // 2nnn - CALL addr: Call subroutine at nnn
-            this.stack[sp++] = this.pc;
-            this.pc = op & 0x0FFF;
+            return 3;
         }
         else if (this.matches(op, 3, x, x, x)) { // 3xkk - SE Vx, byte: Skip next instruction if Vx = kk.
-            if (V[b] == (op & 0x00FF)) {
-                this.pc += 2;
-            }
+            return 4;
         }
         else if (this.matches(op, 4, x, x, x)) { // 4xkk - SNE Vx, byte: Skip next instruction if Vx != kk
-            if (V[b] != (op & 0x00FF)) {
-                this.pc += 2;
-            }
+            return 5;
         }
         else if (this.matches(op, 5, x, x, 0)) { // 5xy0 - SE Vx, Vy: Skip next instruction if Vx = Vy
-            if (V[b] == V[c]) {
-                this.pc += 2;
-            }
+            return 6;
         }
         else if (this.matches(op, 6, x, x, x)) { // 6xkk - LD Vx, byte: Set Vx = kk.
-            V[b] = cast(ubyte) op & 0x00FF;
+            return 7;
         }
         else if (this.matches(op, 7, x, x, x)) { // 7xkk - ADD Vx, byte: Set Vx = Vx + kk
-            V[b] += cast(ubyte) op & 0x00FF;
+            return 8;
         }
         else if (this.matches(op, 8, x, x, 0)) { // 8xy0 - LD Vx, Vy: Set Vx = Vy.
-            V[b] = V[c];
+            return 9;
         }
         else if (this.matches(op, 8, x, x, 1)) { // 8xy1 - OR Vx, Vy: Set Vx = Vx OR Vy.
-            V[b] |= V[c];
+            return 10;
         }
         else if (this.matches(op, 8, x, x, 2)) { // 8xy2 - AND Vx, Vy: Set Vx = Vx AND Vy
-            V[b] &= V[c];
+            return 11;
         }
         else if (this.matches(op, 8, x, x, 3)) { // 8xy3 - XOR Vx, Vy: Set Vx = Vx XOR Vy.
-            V[b] ^= V[c];
+            return 12;
         }
         else if (this.matches(op, 8, x, x, 4)) { // 8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF = carry.
-            if (V[b] + V[c] > 255) {
-                V[F] = cast(ubyte)(V[b] + V[c] - 255);
-            }
-            V[b] += V[c];
+            return 13;
         }
         else if (this.matches(op, 8, x, x, 5)) { // 8xy5 - SUB Vx, Vy: Set Vx = Vx - Vy, set VF = NOT borrow.
-            this.V[F] = V[b] > V[c] ? 1 : 0;
-            V[b] -= V[c];
+            return 14;
         }
         else if (this.matches(op, 8, x, x, 6)) { // 8xy6 - SHR Vx {, Vy}: Set Vx = Vx SHR 1.
-            this.V[F] = V[b] & 1 ? 1 : 0;
-            V[b] >>= 1;
+            return 15;
         }
         else if (this.matches(op, 8, x, x, 7)) { // 8xy7 - SUBN Vx, Vy: Set Vx = Vy - Vx,
-            this.V[F] = V[c] > V[b] ? 1 : 0;
-            V[b] = cast(ubyte)(V[c] - V[b]);
+            return 16;
         }
         else if (this.matches(op, 8, x, x, E)) { // 8xyE - SHL Vx {, Vy}: Set Vx = Vx SHL 1.
-            this.V[F] = V[b] & 0b10000000 >> 7;
-            V[b] <<= 1;
+            return 17;
         }
         else if (this.matches(op, 9, x, x, 0)) { // 9xy0 - SNE Vx, Vy: Skip next instruction if Vx != Vy
-            if (V[b] != V[c]) {
-                this.pc += 2;
-            }
+            return 18;
         }
         else if (this.matches(op, A, x, x, x)) { // Annn - LD I, addr: Set I = nnn.
-            I = op & 0x0FFF;
+            return 19;
         }
         else if (this.matches(op, B, x, x, x)) { // Bnnn - JP V0, addr: Jump to location nnn + V0.
-            this.pc = cast(ushort)(V[0] + op & 0x0FFF);
+            return 20;
         }
         else if (this.matches(op, C, x, x, x)) { // Cxkk - RND Vx, byte: Set Vx = random byte AND kk.
-            import std.random;
-
-            V[b] = cast(ubyte)(uniform(0, 256) & op & 0x00FF);
+            return 21;
         }
         else if (this.matches(op, D, x, x, x)) { // Dxyn - DRW Vx, Vy, nibble: Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
-            this.V[F] = this.Dxyn(V[b], V[c], d) ? 1 : 0;
+            return 22;
         }
         else if (this.matches(op, E, x, 9, E)) { // Ex9E - SKP Vx: Skip next instruction if key with the value of Vx is pressed.
-            if (this.keys[V[b]]) {
-                this.pc += 2;
-            }
+            return 23;
         }
         else if (this.matches(op, E, x, A, 1)) { // ExA1 - SKNP Vx: Skip next instruction if key with the value of Vx is not pressed
-            if (!this.keys[V[b]]) {
-                this.pc += 2;
-            }
+            return 24;
         }
         else if (this.matches(op, F, x, 0, 7)) { // Fx07 - LD Vx, DT: Set Vx = delay timer value.
-            V[b] = this.delay_timer;
+            return 25;
         }
         else if (this.matches(op, F, x, 0, A)) { // Fx0A - LD Vx, K: Wait for a key press, store the value of the key in Vx.
-            if (this.getPress() == 255) {
-                this.pc -= 2;
-                printKeys();
-            }
-            else {
-                V[b] = this.getPress();
-            }
+            return 26;
         }
         else if (this.matches(op, F, x, 1, 5)) { // Fx15 - LD DT, Vx: Set delay timer = Vx.
-            this.delay_timer = V[b];
+            return 27;
         }
         else if (this.matches(op, F, x, 1, 8)) { // Fx18 - LD ST, Vx: Set sound timer = Vx.
-            this.sound_timer = V[b];
+            return 28;
         }
         else if (this.matches(op, F, x, 1, E)) { // Fx1E - ADD I, Vx: Set I = I + Vx.
-            I += V[b];
+            return 29;
         }
         else if (this.matches(op, F, x, 2, 9)) { // Fx29 - LD F, Vx: Set I = location of sprite for digit Vx.
-            I = 5 * V[b];
+            return 30;
         }
         else if (this.matches(op, F, x, 3, 3)) { // Fx33 - LD B, Vx: Store BCD representation of Vx in memory locations I, I+1, and I+2.
-            this.memory[I] = V[b] % 10;
-            this.memory[I + 1] = (V[b] / 10) % 10;
-            this.memory[I + 2] = (V[b] / 100) % 10;
+            return 31;
         }
         else if (this.matches(op, F, x, 5, 5)) { // Fx55 - LD [I], Vx: Store registers V0 through Vx in memory starting at location I
-            for (int i = 0; i < b; i++) {
-                this.memory[I++] = V[i];
-            }
+            return 32;
         }
         else if (this.matches(op, F, x, 6, 5)) { // Fx65 - LD Vx, [I]: Read registers V0 through Vx from memory starting at location I.
-            for (int i = 0; i < b; i++) {
-                V[i] = this.memory[i + I];
-            }
+            return 33;
         }
         else {
             badInstruction(op);
+            assert(0);
         }
     }
+
+    void delegate(const ushort op)[] funTable;
 
     void badInstruction(const ushort op) {
         import std.stdio;
@@ -279,9 +463,9 @@ class Chip8 {
             if (i % 8 == 0) {
                 writeln();
             }
-            writef("%d ", V[i]);
+            writef("%X:%d ", i, V[i]);
         }
-        writeln();
+        writef("\npc: %x, dt: %d, st: %d, I: %X\n\n", pc, delay_timer, sound_timer, I);
     }
 
     ubyte getPress() {
@@ -306,8 +490,20 @@ class Chip8 {
         return true;
     }
 
+    int[ushort] cached;
     void cycle() {
-        this.doInstruction((this.memory[pc++] << 8) | this.memory[pc++]);
+        //import std.stdio;
+
+        ushort op = (this.memory[pc++] << 8);
+        op |= this.memory[pc++];
+        //writef("opcode: 0x%X", op);
+        if (op !in cached) {
+            cached[op] = this.getInstruction(op);
+        }
+        funTable[cached[op]](op);
+        // printRegisters();
+        // writeln();
+
         if (sound_timer > 0) {
             sound_timer--;
         }
