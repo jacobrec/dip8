@@ -1,22 +1,14 @@
 import std.random;
 import cpu;
 
-
-
-
-
-
-pure void function(Chip8 chip)[] getInstructionTable(){
-    return [&.clr, &.ret, &.jpi, &.call, &.sei,
-        &.snei, &.se, &.ldi, &.addi, &.ld,
-        &.or, &.and, &.xor, &.add, &.sub,
-        &.shr, &.subn, &.shl, &.sne, &.lda,
-        &.jp, &.rnd, &.drw, &.skp, &.sknp,
-        &.lddt, &.ldkp, &.dtld, &.ldst, &.adda,
-        &.ldf, &.ldb, &.ldar, &.ldra];
+pure void function(Chip8 chip)[] getInstructionTable() {
+    return [&.clr, &.ret, &.jpi, &.call, &.sei, &.snei, &.se, &.ldi,
+        &.addi, &.ld, &.or, &.and, &.xor, &.add, &.sub, &.shr, &.subn,
+        &.shl, &.sne, &.lda, &.jp, &.rnd, &.drw, &.skp, &.sknp, &.lddt,
+        &.ldkp, &.dtld, &.ldst, &.adda, &.ldf, &.ldb, &.ldar, &.ldra];
 }
 
-pure int[ushort] getOpMap(){
+pure int[ushort] getOpMap() {
     int[ushort] cached;
     for (ushort i = 0; i < 0xFFFF; i++) {
         cached[i] = getInstruction(i);
@@ -31,7 +23,6 @@ immutable ubyte D = 0xD;
 immutable ubyte E = 0xE;
 immutable ubyte F = 0xF;
 immutable ubyte x = 255; // x is a placeholder, it is used when it can match any value, 255 is chosen as it is out of range, b1-b4 are really just 4bit numbers
-
 
 void clr(Chip8 chip) {
     // 00E0 - CLS: Clear the display
@@ -107,10 +98,11 @@ void xor(Chip8 chip) {
 
 void add(Chip8 chip) {
     // 8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF = carry.
-    if (chip.V[((chip.op & 0x0F00) >> 8)] + chip.V[((chip.op & 0x00F0) >> 4)] > 255) {
-        chip.V[F] = cast(ubyte)(chip.V[((chip.op & 0x0F00) >> 8)] + chip.V[((chip.op & 0x00F0) >> 4)] - 255);
+    immutable int sum = chip.V[((chip.op & 0x0F00) >> 8)] + chip.V[((chip.op & 0x00F0) >> 4)];
+    if (sum > 255) {
+        chip.V[F] = cast(ubyte)(sum - 255);
     }
-    chip.V[((chip.op & 0x0F00) >> 8)] += chip.V[((chip.op & 0x00F0) >> 4)];
+    chip.V[((chip.op & 0x0F00) >> 8)] = cast(ubyte)(sum & 0xFF);
 }
 
 void sub(Chip8 chip) {
@@ -161,7 +153,8 @@ void rnd(Chip8 chip) {
 
 void drw(Chip8 chip) {
     // Dxyn - DRW Vx, Vy, nibble: Display n-byte sprite starting at memory location I at (chip.Vx, Vy), set VF = collision
-    chip.V[F] = chip.drawSprite(chip.V[((chip.op & 0x0F00) >> 8)], chip.V[((chip.op & 0x00F0) >> 4)], (chip.op & 0x000F)) ? 1 : 0;
+    chip.V[F] = chip.drawSprite(chip.V[((chip.op & 0x0F00) >> 8)],
+            chip.V[((chip.op & 0x00F0) >> 4)], (chip.op & 0x000F)) ? 1 : 0;
 }
 
 void skp(Chip8 chip) {
@@ -216,9 +209,9 @@ void ldf(Chip8 chip) {
 
 void ldb(Chip8 chip) {
     // Fx33 - LD B, Vx: Store BCD representation of Vx in memory locations I, I+1, and I+2.
-    chip.memory[chip.I + 2] = (chip.V[((chip.op & 0x0F00) >> 8)]) % 10;
-    chip.memory[chip.I + 1] = (chip.V[((chip.op & 0x0F00) >> 8)] / 10) % 10;
-    chip.memory[chip.I] = (chip.V[((chip.op & 0x0F00) >> 8)] / 100) % 10;
+    chip.memory[chip.I] = cast(ubyte)((chip.V[((chip.op & 0x0F00) >> 8)] / 100) % 10);
+    chip.memory[chip.I + 1] = cast(ubyte)((chip.V[((chip.op & 0x0F00) >> 8)] / 10) % 10);
+    chip.memory[chip.I + 2] = cast(ubyte)((chip.V[((chip.op & 0x0F00) >> 8)]) % 10);
 
 }
 
@@ -353,4 +346,79 @@ pure int getInstruction(const ushort op) {
     }
 
     return 35; // larger then array so should call a crash if this gets exucuted
+}
+
+unittest {
+    // tests drawing functions, and rnd, cause idk what to group that with
+
+    Chip8 chip = new Chip8();
+
+    // rnd(chip);
+    // drw(chip);
+
+    // ldf(chip);
+    // ldb(chip);
+
+    clr(chip);
+    for (int i = 0; i < 32 * 64; i++) {
+        assert(!chip.pixels[i]);
+    }
+}
+
+unittest {
+    // test control flow functions
+    Chip8 chip = new Chip8();
+    // ret(chip);
+    // jpi(chip);
+    // call(chip);
+    // sei(chip);
+    // snei(chip);
+    // se(chip);
+    // sne(chip);
+    // jp(chip);
+}
+
+unittest {
+    // test key press functions
+    Chip8 chip = new Chip8();
+    // skp(chip);
+    // sknp(chip);
+    // ldkp(chip);
+}
+
+unittest {
+    // test timer functions
+    Chip8 chip = new Chip8();
+    // lddt(chip);
+    // dtld(chip);
+    // ldst(chip);
+}
+
+unittest {
+
+    Chip8 chip = new Chip8();
+    // addi(chip);
+    // add(chip);
+    // sub(chip);
+    // subn(chip);
+    // adda(chip);
+}
+
+unittest {
+    Chip8 chip = new Chip8();
+    // or(chip);
+    // and(chip);
+    // xor(chip);
+    // shl(chip);
+    // shr(chip);
+}
+
+unittest {
+    Chip8 chip = new Chip8();
+    // ldi(chip);
+    // ld(chip);
+    // lda(chip);
+
+    // ldar(chip);
+    // ldra(chip);
 }

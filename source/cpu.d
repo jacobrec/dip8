@@ -134,15 +134,19 @@ class Chip8 {
 
 
 
-    void cycle() {
-        //import std.stdio;
-
+    void cycle540hz() {
         op = (this.memory[pc++] << 8);
         op |= this.memory[pc++];
-        //writef("opcode: 0x%X", op);
         funTable[cached[op]](this);
-        //printRegisters();
-        //writeln();
+    }
+
+    void cycle60hz(){
+        if (this.sound_timer > 0) {
+            this.sound_timer--;
+        }
+        if (this.delay_timer > 0) {
+            this.delay_timer--;
+        }
     }
 
 
