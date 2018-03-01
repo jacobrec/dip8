@@ -1,4 +1,6 @@
-import instructions;
+module cpu;
+import instruct.instructions;
+
 
 // dfmt off
 ubyte[80] chip8_fontset = [
@@ -51,9 +53,7 @@ class Chip8 {
     bool[16] keys;
 
     bool running;
-    void function(Chip8 chip)[] funTable;
-    immutable int[ushort] cached;
-
+    immutable instruction[ushort] funTable;
 
     this() {
         // programs start here
@@ -63,8 +63,7 @@ class Chip8 {
             this.memory[i] = chip8_fontset[i];
         }
 
-        funTable = getInstructionTable();
-        cached = getOpMap();
+        funTable = getInstructionMap();
     }
 
     void loadRom(string filepath) {
@@ -79,7 +78,6 @@ class Chip8 {
         buffer.length = 4096;
 
         f.rawRead(buffer);
-
 
         for (int i = 0; i < f.size; i++) {
             this.memory[0x200 + i] = buffer[i];
@@ -132,15 +130,13 @@ class Chip8 {
         return 255;
     }
 
-
-
     void cycle540hz() {
         op = (this.memory[pc++] << 8);
         op |= this.memory[pc++];
-        funTable[cached[op]](this);
+        funTable[op](this);
     }
 
-    void cycle60hz(){
+    void cycle60hz() {
         if (this.sound_timer > 0) {
             this.sound_timer--;
         }
@@ -148,7 +144,6 @@ class Chip8 {
             this.delay_timer--;
         }
     }
-
 
     bool drawSprite(ubyte x, ubyte y, ubyte height) {
         ubyte[] sprite = new ubyte[height];
@@ -165,8 +160,9 @@ class Chip8 {
         }
         return isFlipped;
     }
+
     bool drawPixel(int x, int y, bool on) {
-        int ind = (x % 64 + y * 64) % (32*64);
+        int ind = (x % 64 + y * 64) % (32 * 64);
         this.pixels[ind] ^= on;
         return on && !this.pixels[ind];
     }
