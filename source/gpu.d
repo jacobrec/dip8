@@ -1,6 +1,8 @@
 import d2d;
 import cpu;
 import std.datetime;
+import core.sync.mutex;
+
 import std.datetime.stopwatch : benchmark, StopWatch;
 import std.stdio;
 /**
@@ -14,12 +16,12 @@ class RenderScreen : Screen {
 
     void function() onframe;
 
-    Chip8 chip;
+    shared Chip8 chip;
 
     auto foreground = PredefinedColor.WHITE;
     auto background = PredefinedColor.BLACK;
 
-    this(Display container, int pixelsPerPixel, Chip8 chip) {
+    this(Display container, int pixelsPerPixel,shared Chip8 chip) {
         super(container);
         this.pixSize = pixelsPerPixel;
         this.chip = chip;
@@ -45,12 +47,14 @@ class RenderScreen : Screen {
         this.container.renderer.clear(PredefinedColor.BLACK);
 
         // Draw the pixels
+        this.chip.pixelMutex.lock_nothrow();
         for (int i = 0; i < width * height; i++) {
             if (this.chip.pixels[i]) {
                 this.container.renderer.fillRect(new iRectangle(this.pixSize * (i % width),
                         this.pixSize * (i / width), this.pixSize, this.pixSize), this.foreground);
             }
         }
+        this.chip.pixelMutex.unlock_nothrow();
     }
 
 
@@ -58,10 +62,10 @@ class RenderScreen : Screen {
     int i = 0;
     int n = 0;
     override void onFrame() {
-        for(int i = 0; i < 9; i++){
-            this.chip.cycle540hz();
-        }
-        this.chip.cycle60hz();
+        // for(int i = 0; i < 9; i++){
+        //     this.chip.cycle540hz();
+        // }
+        // this.chip.cycle60hz();
 
         if (this.chip.sound_timer) {
             this.foreground = PredefinedColor.BLACK;

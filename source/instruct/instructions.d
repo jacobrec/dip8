@@ -164,7 +164,7 @@ enum funTableLocs {
     LDRA
 }
 
-alias instruction = void function(Chip8 chip);
+alias instruction = void function(shared Chip8 chip);
 pure instruction[ushort] getInstructionMap() {
     instruction[ushort] cached;
     for (ushort i = 0; i < 0xFFFF; i++) {
@@ -173,7 +173,7 @@ pure instruction[ushort] getInstructionMap() {
     return cached;
 }
 
-void badop(Chip8 chip) {
+void badop(shared Chip8 chip) {
     import std.stdio;
 
     writeln("##### ERROR #####");

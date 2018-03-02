@@ -1,5 +1,6 @@
 module cpu;
 import instruct.instructions;
+import core.sync.mutex;
 
 
 // dfmt off
@@ -54,8 +55,9 @@ class Chip8 {
 
     bool running;
     immutable instruction[ushort] funTable;
+    Mutex pixelMutex;
 
-    this() {
+    this() shared {
         // programs start here
         pc = 0x200;
 
@@ -64,9 +66,10 @@ class Chip8 {
         }
 
         funTable = getInstructionMap();
+        pixelMutex = new shared Mutex();
     }
 
-    void loadRom(string filepath) {
+    shared void loadRom(string filepath) {
         import std.file;
         import std.stdio;
 
@@ -86,13 +89,13 @@ class Chip8 {
     }
 
 
-    void cycle540hz() {
+    shared void cycle540hz() {
         op = (this.memory[pc++] << 8);
         op |= this.memory[pc++];
         funTable[op](this);
     }
 
-    void cycle60hz() {
+    shared void cycle60hz() {
         if (this.sound_timer > 0) {
             this.sound_timer--;
         }
@@ -103,7 +106,7 @@ class Chip8 {
 
 
 
-    ubyte getPress() {
+    shared ubyte getPress() {
         for (ubyte i = 0; i < 16; i++) {
             if (this.keys[i]) {
                 return i;
@@ -114,12 +117,16 @@ class Chip8 {
 
 
 
-    bool drawSprite(ubyte x, ubyte y, ubyte height) {
+    shared bool drawSprite(ubyte x, ubyte y, ubyte height) {
+
+
+
         ubyte[] sprite = new ubyte[height];
         for (int l = 0; l < height; l++) {
             sprite[l] = this.memory[l + I];
         }
         bool isFlipped = false;
+        pixelMutex.lock_nothrow();
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < 8; j++) {
                 if (drawPixel((x + j) % 64, y + i, (sprite[i] >> (7 - j)) & 1)) {
@@ -127,16 +134,17 @@ class Chip8 {
                 }
             }
         }
+        pixelMutex.unlock_nothrow();
         return isFlipped;
     }
 
-    bool drawPixel(int x, int y, bool on) {
+    shared bool drawPixel(int x, int y, bool on) {
         int ind = (x % 64 + y * 64) % (32 * 64);
         this.pixels[ind] ^= on;
         return on && !this.pixels[ind];
     }
 
-    void printMemory(int start, int end) {
+    shared void printMemory(int start, int end) {
         import std.stdio;
 
         for (int i = start; i < end; i++) {
@@ -148,7 +156,7 @@ class Chip8 {
         }
     }
 
-    void printKeys() {
+    shared void printKeys() {
         import std.stdio;
 
         for (int i = 0; i < 16; i++) {
@@ -160,7 +168,7 @@ class Chip8 {
         writeln();
     }
 
-    void printRegisters() {
+    shared void printRegisters() {
         import std.stdio;
 
         for (int i = 0; i < 16; i++) {
