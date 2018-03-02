@@ -85,6 +85,57 @@ class Chip8 {
         f.close();
     }
 
+
+    void cycle540hz() {
+        op = (this.memory[pc++] << 8);
+        op |= this.memory[pc++];
+        funTable[op](this);
+    }
+
+    void cycle60hz() {
+        if (this.sound_timer > 0) {
+            this.sound_timer--;
+        }
+        if (this.delay_timer > 0) {
+            this.delay_timer--;
+        }
+    }
+
+
+
+    ubyte getPress() {
+        for (ubyte i = 0; i < 16; i++) {
+            if (this.keys[i]) {
+                return i;
+            }
+        }
+        return 255;
+    }
+
+
+
+    bool drawSprite(ubyte x, ubyte y, ubyte height) {
+        ubyte[] sprite = new ubyte[height];
+        for (int l = 0; l < height; l++) {
+            sprite[l] = this.memory[l + I];
+        }
+        bool isFlipped = false;
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (drawPixel((x + j) % 64, y + i, (sprite[i] >> (7 - j)) & 1)) {
+                    isFlipped = true;
+                }
+            }
+        }
+        return isFlipped;
+    }
+
+    bool drawPixel(int x, int y, bool on) {
+        int ind = (x % 64 + y * 64) % (32 * 64);
+        this.pixels[ind] ^= on;
+        return on && !this.pixels[ind];
+    }
+
     void printMemory(int start, int end) {
         import std.stdio;
 
@@ -119,52 +170,6 @@ class Chip8 {
             writef("%X:%d ", i, V[i]);
         }
         writef("\npc: %x, dt: %d, st: %d, I: %X\n\n", pc, delay_timer, sound_timer, I);
-    }
-
-    ubyte getPress() {
-        for (ubyte i = 0; i < 16; i++) {
-            if (this.keys[i]) {
-                return i;
-            }
-        }
-        return 255;
-    }
-
-    void cycle540hz() {
-        op = (this.memory[pc++] << 8);
-        op |= this.memory[pc++];
-        funTable[op](this);
-    }
-
-    void cycle60hz() {
-        if (this.sound_timer > 0) {
-            this.sound_timer--;
-        }
-        if (this.delay_timer > 0) {
-            this.delay_timer--;
-        }
-    }
-
-    bool drawSprite(ubyte x, ubyte y, ubyte height) {
-        ubyte[] sprite = new ubyte[height];
-        for (int l = 0; l < height; l++) {
-            sprite[l] = this.memory[l + I];
-        }
-        bool isFlipped = false;
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < 8; j++) {
-                if (drawPixel((x + j) % 64, y + i, (sprite[i] >> (7 - j)) & 1)) {
-                    isFlipped = true;
-                }
-            }
-        }
-        return isFlipped;
-    }
-
-    bool drawPixel(int x, int y, bool on) {
-        int ind = (x % 64 + y * 64) % (32 * 64);
-        this.pixels[ind] ^= on;
-        return on && !this.pixels[ind];
     }
 
 }

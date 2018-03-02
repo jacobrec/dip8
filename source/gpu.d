@@ -58,10 +58,7 @@ class RenderScreen : Screen {
     int i = 0;
     int n = 0;
     override void onFrame() {
-        // auto sw = StopWatch();
-        // sw.start();
-        // n++;
-        for(int i = 0; i < 9; i++){// the cpu should be at 540 hz (540hz/60fps = 9 per frame)
+        for(int i = 0; i < 9; i++){
             this.chip.cycle540hz();
         }
         this.chip.cycle60hz();
@@ -74,7 +71,5 @@ class RenderScreen : Screen {
             this.foreground = PredefinedColor.WHITE;
             this.background = PredefinedColor.BLACK;
         }
-        // i+=sw.peek().total!"hnsecs"();
-        // writeln(i/n);
     }
 }
